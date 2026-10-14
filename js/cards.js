@@ -17,7 +17,10 @@ export function filterCards(cards, query) {
 }
 
 // 「上から2段目の右」→ [2, 3]（左=1・中央=2・右=3、「左から4列目」=4）
+// 仮取り込みの「上から3枚目」→ [3, 0]
 function positionKey(pos) {
+  const n = /上から(\d+)枚目/.exec(pos || '');
+  if (n) return [Number(n[1]), 0];
   const m = /上から(\d+)段目(?:の(?:(左|中央|右)|左から(\d+)列目))?/.exec(pos || '');
   if (!m) return [Infinity, Infinity];
   const col = m[2] ? { 左: 1, 中央: 2, 右: 3 }[m[2]] : m[3] ? Number(m[3]) : 0;

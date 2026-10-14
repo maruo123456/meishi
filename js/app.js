@@ -152,9 +152,11 @@ function renderCards() {
 
   function drawStatus() {
     const pending = state.counts['未処理'] || 0, errors = state.counts['エラー'] || 0;
+    const provisional = state.counts['仮取り込み'] || 0;
     status.replaceChildren(...[
       h('span', {}, `全 ${state.cards.length} 枚`),
       pending ? h('span', { class: 'chip' }, `未処理：${pending} 組`) : null,
+      provisional ? h('span', { class: 'chip' }, `仮取り込み：${provisional} 組`) : null,
       errors ? h('button', { class: 'chip danger', onclick: openErrors }, `エラー：${errors} 組`) : null,
     ].filter(Boolean));
   }
@@ -194,7 +196,7 @@ function openCard(c) {
   });
   openSheet(c.name || c.company || '名刺',
     c.needsReview ? h('p', { class: 'review' }, '要確認：' + (c.reviewNote || '内容を確かめてください')) : null,
-    h('div', { class: 'img-pair' }, imageBox(c.frontImageId, '表'), imageBox(c.backImageId, '裏')),
+    cardImages(c),
     h('dl', { class: 'fields' }, ...rows.flat(),
       h('dt', {}, '場所'), h('dd', {}, locationText(c)),
       c.shotDate ? [h('dt', {}, '撮影日'), h('dd', {}, c.shotDate)] : null),
@@ -202,6 +204,23 @@ function openCard(c) {
       h('button', { onclick: () => openPage(c) }, 'ページ全体を見る'),
       h('button', { onclick: () => openEdit(c) }, '修正'),
       h('button', { class: 'danger', onclick: () => removeCard(c) }, '削除')));
+}
+
+// 名刺ごとの画像。仮取り込みの名刺など、切り出し画像がないときは撮った写真全体を出す
+function cardImages(c) {
+  if (c.frontImageId || c.backImageId) {
+    return h('div', { class: 'img-pair' }, imageBox(c.frontImageId, '表'), imageBox(c.backImageId, '裏'));
+  }
+  const box = h('div', {}, h('p', { class: 'muted' }, '写真を読み込み中…'));
+  (async () => {
+    let shot = (await getShots()).find((s) => s.shotId === c.shotId);
+    if (!shot) shot = (await getShots(true)).find((s) => s.shotId === c.shotId);
+    if (!shot) { box.replaceChildren(h('p', { class: 'muted' }, '写真が見つかりませんでした')); return; }
+    box.replaceChildren(
+      h('p', { class: 'muted' }, '名刺ごとの画像がないので、撮った写真全体を表示しています。'),
+      h('div', { class: 'img-pair' }, imageBox(shot.frontPhotoId, '表の写真'), imageBox(shot.backPhotoId, '裏の写真')));
+  })().catch(() => box.replaceChildren(h('p', { class: 'muted' }, '写真を読み込めませんでした')));
+  return box;
 }
 
 async function getShots(force = false) {
